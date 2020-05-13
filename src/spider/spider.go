@@ -73,8 +73,7 @@ func Download(urlLink string) string {
 	if err != nil {
 		fmt.Println("read body error")
 	}
-	fmt.Println(string(body))
-	return ""
+	return string(body)
 }
 
 //获取城市公寓信息
