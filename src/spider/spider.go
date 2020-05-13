@@ -49,7 +49,7 @@ func (h HouseInfo)UpdateOnlineInfo(abbr string) {
 
 }
 
-//获取url内容函数
+//获取urlBody
 func Download(urlLink string) string {
 	proxy := func(_ *http.Request) (*url.URL, error) {
 		return url.Parse(GetProxyUrl())
