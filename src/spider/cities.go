@@ -2,6 +2,12 @@ package spider
 
 
 type Map map[string]string
+var Enum = Map{
+	"0": "",
+	"1":"分散式",
+	"2":"集中式",
+	"3":"分散式|集中式",
+}
 var List = Map{
 	"110000":"北京", //bj
 	"310000":"上海", //sh

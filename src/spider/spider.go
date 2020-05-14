@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -23,6 +24,11 @@ type HouseInfo struct {
 
 type AllData map[string][]HouseInfo //映射关系 城市 =》公寓信息
 
+type Set struct {
+	CityCode string
+	CityAbbr string
+	HouseInfo
+}
 //获取代理IP
 func GetProxyUrl() string {
 	proxyUrl := "http://10.132.66.8:1700/proxy.php"
@@ -46,9 +52,29 @@ func GetProxyUrl() string {
 }
 
 //填充每个房源下的字段信息
-func (h HouseInfo)UpdateOnlineInfo (abbr string) {
-
+func (s Set)UpdateOnlineInfo() Set {
+	//获取公寓类型 门店数量
+	Url := fmt.Sprintf("https://m.ke.com/chuzu/%s/brand/%s/info/", s.CityAbbr, s.GongyuId)
+	detailStr := Download(Url)
+	s.GongyuType = GetGongyuType(detailStr)
+	s.ShopNum = GetShopNum(detailStr)
+	v := url.Values{
+		"city_id": []string{s.CityCode},
+		"condition": []string{"ab"+s.GongyuId},
+		"request_ts": []string{strconv.FormatInt(time.Now().Unix(), 10)},
+		"scene": []string{"list"},
+	}
+	Url = fmt.Sprintf("https://app.api.ke.com/Rentplat/v1/house/total?%s", v.Encode())
+	fmt.Printf("HouseInfo url:%s", Url)
+	s.HouseNum = GetBrandHouseNum(Download(Url))
+	v.Set("condition","vr1ab"+s.GongyuId)
+	v.Set("request_ts", strconv.FormatInt(time.Now().Unix(), 10))
+	Url = fmt.Sprintf("https://app.api.ke.com/Rentplat/v1/house/total?%s", v.Encode())
+	fmt.Printf("HouseVrInfo url:%s", Url)
+	s.HouseVrNum = GetBrandHouseNum(Download(Url))
+	return s
 }
+
 
 
 //获取urlBody
@@ -65,19 +91,24 @@ func Download (urlLink string) string {
 	req.Header.Add("Lianjia-Access-Token", "2.003a4d930e46e84eaf2be0ba3fb4ad3b3f")
 	req.Header.Add("Lianjia-Device-Id", "A253C17E-5837-4AF8-8523-06F3AF7C5851")
 	req.Header.Add("Authorization", "MjAxODAxMTFfaW9zOjk4MDVjNGUwZDI1MWZhNWE3ZjU2NTE0NTNlNjM0OWM3MTg2MzllODY=")
+REDO:
 	resp, err := client.Do(req)
-	retry := 3
+	retry := 10
 	for err != nil && retry != 0 {
-		resp, err = client.Do(req)
 		fmt.Println(err)
+		resp, err = client.Do(req)
 		retry--
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
-	retry = 3
+	retry = 10
 	for err != nil && retry > 0 {
-		body, err = ioutil.ReadAll(resp.Body)
 		fmt.Println("read body error")
+		body, err = ioutil.ReadAll(resp.Body)
+		retry--
+	}
+	if retry == 0 && err != nil {
+		goto REDO
 	}
 	return string(body)
 }
@@ -89,6 +120,31 @@ func GetBrandIdAndName (str string) (string, string) {
 	brandName := reg.FindStringSubmatch(str)[1]
 	return strings.Fields(brandId)[0],strings.Fields(brandName)[0]
 }
+//获取公寓类型
+func GetGongyuType(str string) string {
+	gongyuType := 0
+	jizhongshiStr := `id="brandApartment"`
+	fensanshiStr := `id="brandHouse"`
+	if strings.Contains(str, jizhongshiStr) == true {gongyuType |= 1}
+	if strings.Contains(str, fensanshiStr) == true {gongyuType |= 2}
+
+	return Enum[string(gongyuType)]
+}
+//获取门店数量
+func GetShopNum(str string) int {
+	reg := regexp.MustCompile(`<p class="brand__content--info--desc">(.*?)</p>`)
+	desc := reg.FindAllStringSubmatch(str, -1)
+	reg = regexp.MustCompile(`<p class="brand__content--info--num">(.*?)</p>`)
+	num := reg.FindAllStringSubmatch(str, -1)
+	for i := 0; i < len(desc) ; i++ {
+		if desc[i][1] == "门店数量" {
+			n, err := strconv.Atoi(num[i][1])
+			if err != nil { return 0}
+			return n
+		}
+	}
+	return 0
+}
 //获取公寓列表信息
 func GetBrandInfos(str string) ([]HouseInfo, int) {
 	h := make([]HouseInfo, 0)
@@ -99,10 +155,14 @@ func GetBrandInfos(str string) ([]HouseInfo, int) {
 	}
 	return h, len(h)
 }
+func GetBrandHouseNum(str string) int {
+	return 0
+}
 
 //获取城市公寓信息
-func GetBrandInfoList(cityCode, abbr string) []HouseInfo {
-	h := make([]HouseInfo, 0)
+//Go程需要执行的函数
+func GetBrandInfoList(cityCode, abbr string) {
+	h := make([]Set, 0)
 	//默认提取数量为20
 	list := 20
 	for page :=0; ; page++ {
@@ -120,11 +180,10 @@ func GetBrandInfoList(cityCode, abbr string) []HouseInfo {
 		fmt.Printf("detailUrl:%s num:%d list: %d \n", detailUrl, num, list)
 		//可以在此增加通道
 		for i :=0; i < len(info); i++ {
-			h = append(h, info[i])
+			h = append(h, Set{CityAbbr: abbr, CityCode: cityCode, HouseInfo:info[i]}.UpdateOnlineInfo())
 		}
 		if list == 0 {break}
 	}
-	return h
 }
 
 
