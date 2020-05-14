@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -14,7 +15,7 @@ import (
 type HouseInfo struct {
 	GongyuName string
 	GongyuType string
-	GongyuId int
+	GongyuId string
 	HouseNum int
 	HouseVrNum int
 	ShopNum int
@@ -45,12 +46,13 @@ func GetProxyUrl() string {
 }
 
 //填充每个房源下的字段信息
-func (h HouseInfo)UpdateOnlineInfo(abbr string) {
+func (h HouseInfo)UpdateOnlineInfo (abbr string) {
 
 }
 
+
 //获取urlBody
-func Download(urlLink string) string {
+func Download (urlLink string) string {
 	proxy := func(_ *http.Request) (*url.URL, error) {
 		return url.Parse(GetProxyUrl())
 	}
@@ -63,7 +65,6 @@ func Download(urlLink string) string {
 	req.Header.Add("Lianjia-Device-Id", "A253C17E-5837-4AF8-8523-06F3AF7C5851")
 	req.Header.Add("Authorization", "MjAxODAxMTFfaW9zOjk4MDVjNGUwZDI1MWZhNWE3ZjU2NTE0NTNlNjM0OWM3MTg2MzllODY=")
 	resp, err := client.Do(req)
-	fmt.Println(err)
 	for err != nil {
 		resp, err = client.Do(req)
 		fmt.Println(err)
@@ -75,13 +76,47 @@ func Download(urlLink string) string {
 	}
 	return string(body)
 }
+// 获取公寓ID 公寓名称
+func GetBrandIdAndName (str string) (string, string) {
+	reg := regexp.MustCompile(`<a href="/chuzu/.*?/brand/(.*?)/`)
+	brandId := reg.FindStringSubmatch(str)[1]
+	reg = regexp.MustCompile(`<p class="oneline content__item__title">([\s\S]*?)</p>`)
+	brandName := reg.FindStringSubmatch(str)[1]
+	return strings.Trim(brandId," "),strings.Trim(brandName," ")
+}
+//获取公寓列表信息
+func GetBrandInfos(str string) ([]HouseInfo, int) {
+	h := make([]HouseInfo, 0)
+	reg := regexp.MustCompile(`<div class="content__item ">([\s\S]*?)</div>`)
+	for _, item := range reg.FindAllString(str, -1) {
+		brandId, brandName := GetBrandIdAndName(item)
+		h = append(h, HouseInfo{GongyuId: brandId, GongyuName: brandName})
+	}
+	return h, len(h)
+}
 
 //获取城市公寓信息
 func GetBrandInfoList(cityCode, abbr string) []HouseInfo {
+	h := make([]HouseInfo, 0)
+	//默认提取数量为20
+	list := 20
 	for page :=0; ; page++ {
 		detailUrl := fmt.Sprintf("https://m.ke.com/chuzu/%s/brand/pg%d/?ajax=1", abbr, page)
-		Download(detailUrl)
+		info, num := GetBrandInfos(Download(detailUrl))
+		retry := 3
+		if list == 20 && num ==0 {
+			for retry > 0 {
+				info, num = GetBrandInfos(Download(detailUrl))
+				if num > 0 {break}
+				retry--
+			}
+		}
+		list = num
+		for i :=0; i < len(info); i++ {
+			h = append(h, info[i])
+		}
 	}
+	return h
 }
 
 
