@@ -58,6 +58,7 @@ func Download (urlLink string) string {
 	}
 	client := &http.Client{
 		Transport: &http.Transport{Proxy: proxy},
+		Timeout: 3 * time.Second,
 	}
 	req,_ := http.NewRequest(http.MethodGet, urlLink, nil)
 	req.Header.Set("Cookie", "lianjia_uuid=D54C855E-409C-4938-BE3C-9C0923F8AF58; lianjia_ssid=6EC4B1B6-BBA8-4396-8DA6-7C966DF2C877; lianjia_udid=A253C17E-5837-4AF8-8523-06F3AF7C5851; lianjia_token=2.003a4d930e46e84eaf2be0ba3fb4ad3b3f")
@@ -65,13 +66,17 @@ func Download (urlLink string) string {
 	req.Header.Add("Lianjia-Device-Id", "A253C17E-5837-4AF8-8523-06F3AF7C5851")
 	req.Header.Add("Authorization", "MjAxODAxMTFfaW9zOjk4MDVjNGUwZDI1MWZhNWE3ZjU2NTE0NTNlNjM0OWM3MTg2MzllODY=")
 	resp, err := client.Do(req)
-	for err != nil {
+	retry := 3
+	for err != nil && retry != 0 {
 		resp, err = client.Do(req)
 		fmt.Println(err)
+		retry--
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
+	retry = 3
+	for err != nil && retry > 0 {
+		body, err = ioutil.ReadAll(resp.Body)
 		fmt.Println("read body error")
 	}
 	return string(body)
@@ -82,7 +87,7 @@ func GetBrandIdAndName (str string) (string, string) {
 	brandId := reg.FindStringSubmatch(str)[1]
 	reg = regexp.MustCompile(`<p class="oneline content__item__title">([\s\S]*?)</p>`)
 	brandName := reg.FindStringSubmatch(str)[1]
-	return strings.Trim(brandId," "),strings.Trim(brandName," ")
+	return strings.Fields(brandId)[0],strings.Fields(brandName)[0]
 }
 //获取公寓列表信息
 func GetBrandInfos(str string) ([]HouseInfo, int) {
@@ -112,9 +117,12 @@ func GetBrandInfoList(cityCode, abbr string) []HouseInfo {
 			}
 		}
 		list = num
+		fmt.Printf("detailUrl:%s num:%d list: %d \n", detailUrl, num, list)
+		//可以在此增加通道
 		for i :=0; i < len(info); i++ {
 			h = append(h, info[i])
 		}
+		if list == 0 {break}
 	}
 	return h
 }

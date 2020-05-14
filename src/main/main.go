@@ -12,9 +12,11 @@ func GetBrandId(str string) string {
 
 func main() {
 	//url := "https://app.api.ke.com/Rentplat/v1/house/total?city_id=110000&condition=ht1ab200301001000&request_ts=1589371036&scene=list"
-	url := "https://m.ke.com/chuzu/bj/brand/pg1/?ajax=1"
-	str := spider.Download(url)
+	//url := "https://m.ke.com/chuzu/bj/brand/pg1/?ajax=1"
+	//str := spider.Download(url)
 	//fmt.Println(spider.GetBrandIdAndName(str))
-	info, len := spider.GetBrandInfos(str)
-	fmt.Println(len, info)
+
+	//info, len := spider.GetBrandInfos(str)
+	info := spider.GetBrandInfoList(`110000`, `bj`)
+	fmt.Println(len(info),info)
 }
