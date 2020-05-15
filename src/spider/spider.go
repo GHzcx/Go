@@ -74,9 +74,6 @@ func (s Set)UpdateOnlineInfo() Set {
 	s.HouseVrNum = GetBrandHouseNum(Download(Url))
 	return s
 }
-
-
-
 //获取urlBody
 func Download (urlLink string) string {
 	proxy := func(_ *http.Request) (*url.URL, error) {
@@ -101,15 +98,7 @@ REDO:
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
-	retry = 10
-	for err != nil && retry > 0 {
-		fmt.Println("read body error")
-		body, err = ioutil.ReadAll(resp.Body)
-		retry--
-	}
-	if retry == 0 && err != nil {
-		goto REDO
-	}
+	if err != nil {goto REDO}
 	return string(body)
 }
 // 获取公寓ID 公寓名称
@@ -145,6 +134,18 @@ func GetShopNum(str string) int {
 	}
 	return 0
 }
+//
+func GetBrandHouseNum(str string) int {
+	fmt.Println(str)
+	var f interface{}
+	err := json.Unmarshal([]byte(str),&f)
+	if err != nil {
+		fmt.Println(err)
+	}
+	m := f.(map[string]interface{})["data"].(map[string]interface{})["total"]
+	return int(m.(float64))
+}
+
 //获取公寓列表信息
 func GetBrandInfos(str string) ([]HouseInfo, int) {
 	h := make([]HouseInfo, 0)
@@ -155,12 +156,7 @@ func GetBrandInfos(str string) ([]HouseInfo, int) {
 	}
 	return h, len(h)
 }
-func GetBrandHouseNum(str string) int {
-	return 0
-}
-
 //获取城市公寓信息
-//Go程需要执行的函数
 func GetBrandInfoList(cityCode, abbr string) {
 	h := make([]Set, 0)
 	//默认提取数量为20
