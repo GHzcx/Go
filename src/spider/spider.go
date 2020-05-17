@@ -76,6 +76,7 @@ func (s Set)UpdateOnlineInfo() Set {
 }
 //获取urlBody
 func Download (urlLink string) string {
+	time.Sleep(time.Duration(rand.Int63n(100) + 100)*time.Millisecond)
 	proxy := func(_ *http.Request) (*url.URL, error) {
 		return url.Parse(GetProxyUrl())
 	}
@@ -141,6 +142,7 @@ func GetBrandHouseNum(str string) int {
 	err := json.Unmarshal([]byte(str),&f)
 	if err != nil {
 		fmt.Println(err)
+		return 0
 	}
 	m := f.(map[string]interface{})["data"].(map[string]interface{})["total"]
 	return int(m.(float64))
@@ -157,10 +159,10 @@ func GetBrandInfos(str string) ([]HouseInfo, int) {
 	return h, len(h)
 }
 //获取城市公寓信息
-func GetBrandInfoList(cityCode, abbr string) {
-	h := make([]Set, 0)
+func GetBrandInfoList(done chan struct{},result chan<- Set,  cityCode, abbr string) {
 	//默认提取数量为20
 	list := 20
+	count := 0
 	for page :=0; ; page++ {
 		detailUrl := fmt.Sprintf("https://m.ke.com/chuzu/%s/brand/pg%d/?ajax=1", abbr, page)
 		info, num := GetBrandInfos(Download(detailUrl))
@@ -174,12 +176,16 @@ func GetBrandInfoList(cityCode, abbr string) {
 		}
 		list = num
 		fmt.Printf("detailUrl:%s num:%d list: %d \n", detailUrl, num, list)
-		//可以在此增加通道
 		for i :=0; i < len(info); i++ {
-			h = append(h, Set{CityAbbr: abbr, CityCode: cityCode, HouseInfo:info[i]}.UpdateOnlineInfo())
+			go func(result chan<- Set, s Set) {
+				h := s.UpdateOnlineInfo()
+				result <- h
+			}(result, Set{CityAbbr: abbr, CityCode: cityCode, HouseInfo:info[i]})
+			count++
 		}
 		if list == 0 {break}
 	}
+	done <- struct{}{}
 }
 
 
