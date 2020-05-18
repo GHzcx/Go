@@ -94,12 +94,18 @@ REDO:
 	retry := 10
 	for err != nil && retry != 0 {
 		fmt.Println(err)
+		time.Sleep(time.Duration(rand.Int63n(100) + 100)*time.Millisecond)
 		resp, err = client.Do(req)
 		retry--
 	}
+	body, err1 := ioutil.ReadAll(resp.Body)
+	if err1 != nil {
+		fmt.Println(err1)
+		resp.Body.Close()
+		goto REDO
+	}
+
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {goto REDO}
 	return string(body)
 }
 // 获取公寓ID 公寓名称
@@ -159,10 +165,9 @@ func GetBrandInfos(str string) ([]HouseInfo, int) {
 	return h, len(h)
 }
 //获取城市公寓信息
-func GetBrandInfoList(done chan struct{},result chan<- Set,  cityCode, abbr string) {
+func GetBrandInfoList(Queue chan int, done chan struct{},result chan<- Set,  cityCode, abbr string) {
 	//默认提取数量为20
 	list := 20
-	count := 0
 	for page :=0; ; page++ {
 		detailUrl := fmt.Sprintf("https://m.ke.com/chuzu/%s/brand/pg%d/?ajax=1", abbr, page)
 		info, num := GetBrandInfos(Download(detailUrl))
@@ -176,16 +181,17 @@ func GetBrandInfoList(done chan struct{},result chan<- Set,  cityCode, abbr stri
 		}
 		list = num
 		fmt.Printf("detailUrl:%s num:%d list: %d \n", detailUrl, num, list)
-		for i :=0; i < len(info); i++ {
+		for i := 0; i < len(info); i++ {
 			go func(result chan<- Set, s Set) {
 				h := s.UpdateOnlineInfo()
 				result <- h
 			}(result, Set{CityAbbr: abbr, CityCode: cityCode, HouseInfo:info[i]})
-			count++
 		}
 		if list == 0 {break}
+		fmt.Println("Queue", len(Queue), "")
 	}
 	done <- struct{}{}
+	<-Queue
 }
 
 
