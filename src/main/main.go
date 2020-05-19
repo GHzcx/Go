@@ -2,13 +2,8 @@ package main
 
 import (
 	"fmt"
-	"regexp"
 	"spider"
 )
-func GetBrandId(str string) string {
-	reg := regexp.MustCompile(`<a href="/chuzu/.*?/brand/(.*?)/`)
-	return reg.FindAllString(str, -1)[0]
-}
 
 func main() {
 	alldata := make(spider.AllData, 0)

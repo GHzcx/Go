@@ -31,6 +31,7 @@ type Set struct {
 }
 //获取代理IP
 func GetProxyUrl() string {
+	REDO:
 	proxyUrl := "http://10.132.66.8:1700/proxy.php"
 	resp, err := http.Get(proxyUrl)
 	for err != nil {
@@ -45,6 +46,7 @@ func GetProxyUrl() string {
 	err = json.Unmarshal(body, &f)
 	if err != nil {
 		fmt.Println("json decode faild")
+		goto REDO
 	}
 	num := rand.New(rand.NewSource(time.Now().UnixNano())).Int63n(int64(len(f) - 1))
 	str := strings.ToLower(f[num]["proxy_type"]) +"://" + f[num]["ip"] + ":" + f[num]["port"]
