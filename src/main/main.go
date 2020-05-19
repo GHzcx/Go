@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"regexp"
 	"spider"
-	"time"
 )
 func GetBrandId(str string) string {
 	reg := regexp.MustCompile(`<a href="/chuzu/.*?/brand/(.*?)/`)
@@ -12,32 +11,20 @@ func GetBrandId(str string) string {
 }
 
 func main() {
-	//spider.GetBrandInfoList(`110000`, `bj`)
-	//fmt.Println(len(info),info)
-
 	alldata := make(spider.AllData, 0)
 	Queue := make (chan int, 2)
-	result := make (chan spider.Set, 100)
-	done := make(chan struct{}, len(spider.Abbr))
-	go func(result chan spider.Set, data *spider.AllData) {
-		retry := 10
-		for retry > 0 {
-			select {
-			case s:= <-result:
-				(*data)[s.CityCode] = append((*data)[s.CityCode], s.HouseInfo)
-			default:
-				time.Sleep(time.Duration(60)*time.Second)
-				retry--
-			}
-		}
-	}(result, &alldata)
+	result := make (chan spider.Set, 10)
+	done := make(chan struct{}, len(spider.CityAbbr))
+
 	for city, abbr := range spider.CityAbbr {
 		Queue <- 1
-		go spider.GetBrandInfoList(Queue, done,result, city, abbr)
+		go spider.GetBrandInfoList(Queue, done, result, city, abbr)
 		fmt.Println("Queue", len(Queue))
 	}
 	for working := len(spider.CityAbbr); working > 0; {
 		select {
+			case s:= <-result:
+				alldata[s.CityCode] = append(alldata[s.CityCode], s.HouseInfo)
 			case <-done:
 				working--
 		}
@@ -52,15 +39,12 @@ DONE:
 				break DONE
 		}
 	}
-	time.Sleep(time.Duration(60)*time.Second)
 	for cityCode,info := range alldata {
-		fmt.Println(spider.CityList[cityCode])
-		for i := 0; i < len(info); i++ {
-			fmt.Println(info[i])
-		}
+		fmt.Println(spider.CityList[cityCode], len(info))
 	}
 
-	//defer close(result)
-	//defer close(done)
+	defer close(result)
+	defer close(done)
+	defer close(Queue)
 
 }

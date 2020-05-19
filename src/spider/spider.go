@@ -50,7 +50,10 @@ func GetProxyUrl() string {
 	str := strings.ToLower(f[num]["proxy_type"]) +"://" + f[num]["ip"] + ":" + f[num]["port"]
 	return str
 }
+func getSleep() {
+	time.Sleep(time.Duration(rand.Int63n(500) + 100)*time.Millisecond)
 
+}
 //填充每个房源下的字段信息
 func (s Set)UpdateOnlineInfo() Set {
 	//获取公寓类型 门店数量
@@ -76,7 +79,7 @@ func (s Set)UpdateOnlineInfo() Set {
 }
 //获取urlBody
 func Download (urlLink string) string {
-	time.Sleep(time.Duration(rand.Int63n(100) + 100)*time.Millisecond)
+	getSleep()
 	proxy := func(_ *http.Request) (*url.URL, error) {
 		return url.Parse(GetProxyUrl())
 	}
@@ -89,14 +92,18 @@ func Download (urlLink string) string {
 	req.Header.Add("Lianjia-Access-Token", "2.003a4d930e46e84eaf2be0ba3fb4ad3b3f")
 	req.Header.Add("Lianjia-Device-Id", "A253C17E-5837-4AF8-8523-06F3AF7C5851")
 	req.Header.Add("Authorization", "MjAxODAxMTFfaW9zOjk4MDVjNGUwZDI1MWZhNWE3ZjU2NTE0NTNlNjM0OWM3MTg2MzllODY=")
-REDO:
+	REDO:
 	resp, err := client.Do(req)
 	retry := 10
 	for err != nil && retry != 0 {
 		fmt.Println(err)
-		time.Sleep(time.Duration(rand.Int63n(100) + 100)*time.Millisecond)
+		getSleep()
 		resp, err = client.Do(req)
 		retry--
+	}
+	if err != nil {
+		fmt.Println(err)
+		goto REDO
 	}
 	body, err1 := ioutil.ReadAll(resp.Body)
 	if err1 != nil {
@@ -141,7 +148,7 @@ func GetShopNum(str string) int {
 	}
 	return 0
 }
-//
+
 func GetBrandHouseNum(str string) int {
 	fmt.Println(str)
 	var f interface{}
