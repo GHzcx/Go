@@ -120,10 +120,13 @@ func Download (urlLink string) string {
 // 获取公寓ID 公寓名称
 func GetBrandIdAndName (str string) (string, string) {
 	reg := regexp.MustCompile(`<a href="/chuzu/.*?/brand/(.*?)/`)
-	brandId := reg.FindStringSubmatch(str)[1]
+	brandId := strings.Fields(reg.FindStringSubmatch(str)[1])
 	reg = regexp.MustCompile(`<p class="oneline content__item__title">([\s\S]*?)</p>`)
-	brandName := reg.FindStringSubmatch(str)[1]
-	return strings.Fields(brandId)[0],strings.Fields(brandName)[0]
+	brandName := strings.Fields(reg.FindStringSubmatch(str)[1])
+	if len(brandId) == 0 || len(brandName) == 0  {
+		return "", ""
+	}
+	return brandId[0], brandName[0]
 }
 //获取公寓类型
 func GetGongyuType(str string) string {
@@ -169,6 +172,9 @@ func GetBrandInfos(str string) ([]HouseInfo, int) {
 	reg := regexp.MustCompile(`<div class="content__item ">([\s\S]*?)</div>`)
 	for _, item := range reg.FindAllString(str, -1) {
 		brandId, brandName := GetBrandIdAndName(item)
+		if brandId == "" || brandName == "" {
+			continue
+		}
 		h = append(h, HouseInfo{GongyuId: brandId, GongyuName: brandName})
 	}
 	return h, len(h)
