@@ -3,6 +3,7 @@ package znet
 import (
 	"fmt"
 	"net"
+	"time"
 	"zinx/ziface"
 )
 
@@ -72,5 +73,8 @@ func (s *Server) Stop() {
 }
 
 func (s *Server) Server() {
-
+	s.Start()
+	for {
+		time.Sleep(10 * time.Second)
+	}
 }
