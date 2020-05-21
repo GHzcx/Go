@@ -65,14 +65,14 @@ func (s Set)UpdateOnlineInfo() Set {
 	s.ShopNum = GetShopNum(detailStr)
 	v := url.Values{
 		"city_id": []string{s.CityCode},
-		"condition": []string{"ab"+s.GongyuId},
+		"condition": []string{"ht1ab"+s.GongyuId},
 		"request_ts": []string{strconv.FormatInt(time.Now().Unix(), 10)},
 		"scene": []string{"list"},
 	}
 	Url = fmt.Sprintf("https://app.api.ke.com/Rentplat/v1/house/total?%s", v.Encode())
 	fmt.Printf("HouseInfo url:%s", Url)
 	s.HouseNum = GetBrandHouseNum(Download(Url))
-	v.Set("condition","vr1ab"+s.GongyuId)
+	v.Set("condition","ht1vr1ab"+s.GongyuId)
 	v.Set("request_ts", strconv.FormatInt(time.Now().Unix(), 10))
 	Url = fmt.Sprintf("https://app.api.ke.com/Rentplat/v1/house/total?%s", v.Encode())
 	fmt.Printf("HouseVrInfo url:%s", Url)
