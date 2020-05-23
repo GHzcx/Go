@@ -31,6 +31,7 @@ type Set struct {
 }
 //获取代理IP
 func GetProxyUrl() string {
+	REDO:
 	proxyUrl := "http://10.132.66.8:1700/proxy.php"
 	resp, err := http.Get(proxyUrl)
 	for err != nil {
@@ -45,12 +46,16 @@ func GetProxyUrl() string {
 	err = json.Unmarshal(body, &f)
 	if err != nil {
 		fmt.Println("json decode faild")
+		goto REDO
 	}
 	num := rand.New(rand.NewSource(time.Now().UnixNano())).Int63n(int64(len(f) - 1))
 	str := strings.ToLower(f[num]["proxy_type"]) +"://" + f[num]["ip"] + ":" + f[num]["port"]
 	return str
 }
+func getSleep() {
+	time.Sleep(time.Duration(rand.Int63n(500) + 100)*time.Millisecond)
 
+}
 //填充每个房源下的字段信息
 func (s Set)UpdateOnlineInfo() Set {
 	//获取公寓类型 门店数量
@@ -60,14 +65,14 @@ func (s Set)UpdateOnlineInfo() Set {
 	s.ShopNum = GetShopNum(detailStr)
 	v := url.Values{
 		"city_id": []string{s.CityCode},
-		"condition": []string{"ab"+s.GongyuId},
+		"condition": []string{"ht1ab"+s.GongyuId},
 		"request_ts": []string{strconv.FormatInt(time.Now().Unix(), 10)},
 		"scene": []string{"list"},
 	}
 	Url = fmt.Sprintf("https://app.api.ke.com/Rentplat/v1/house/total?%s", v.Encode())
 	fmt.Printf("HouseInfo url:%s", Url)
 	s.HouseNum = GetBrandHouseNum(Download(Url))
-	v.Set("condition","vr1ab"+s.GongyuId)
+	v.Set("condition","ht1vr1ab"+s.GongyuId)
 	v.Set("request_ts", strconv.FormatInt(time.Now().Unix(), 10))
 	Url = fmt.Sprintf("https://app.api.ke.com/Rentplat/v1/house/total?%s", v.Encode())
 	fmt.Printf("HouseVrInfo url:%s", Url)
@@ -76,7 +81,7 @@ func (s Set)UpdateOnlineInfo() Set {
 }
 //获取urlBody
 func Download (urlLink string) string {
-	time.Sleep(time.Duration(rand.Int63n(100) + 100)*time.Millisecond)
+	getSleep()
 	proxy := func(_ *http.Request) (*url.URL, error) {
 		return url.Parse(GetProxyUrl())
 	}
@@ -89,14 +94,18 @@ func Download (urlLink string) string {
 	req.Header.Add("Lianjia-Access-Token", "2.003a4d930e46e84eaf2be0ba3fb4ad3b3f")
 	req.Header.Add("Lianjia-Device-Id", "A253C17E-5837-4AF8-8523-06F3AF7C5851")
 	req.Header.Add("Authorization", "MjAxODAxMTFfaW9zOjk4MDVjNGUwZDI1MWZhNWE3ZjU2NTE0NTNlNjM0OWM3MTg2MzllODY=")
-REDO:
+	REDO:
 	resp, err := client.Do(req)
 	retry := 10
 	for err != nil && retry != 0 {
 		fmt.Println(err)
-		time.Sleep(time.Duration(rand.Int63n(100) + 100)*time.Millisecond)
+		getSleep()
 		resp, err = client.Do(req)
 		retry--
+	}
+	if err != nil {
+		fmt.Println(err)
+		goto REDO
 	}
 	body, err1 := ioutil.ReadAll(resp.Body)
 	if err1 != nil {
@@ -111,10 +120,13 @@ REDO:
 // 获取公寓ID 公寓名称
 func GetBrandIdAndName (str string) (string, string) {
 	reg := regexp.MustCompile(`<a href="/chuzu/.*?/brand/(.*?)/`)
-	brandId := reg.FindStringSubmatch(str)[1]
+	brandId := strings.Fields(reg.FindStringSubmatch(str)[1])
 	reg = regexp.MustCompile(`<p class="oneline content__item__title">([\s\S]*?)</p>`)
-	brandName := reg.FindStringSubmatch(str)[1]
-	return strings.Fields(brandId)[0],strings.Fields(brandName)[0]
+	brandName := strings.Fields(reg.FindStringSubmatch(str)[1])
+	if len(brandId) == 0 || len(brandName) == 0  {
+		return "", ""
+	}
+	return brandId[0], brandName[0]
 }
 //获取公寓类型
 func GetGongyuType(str string) string {
@@ -141,7 +153,7 @@ func GetShopNum(str string) int {
 	}
 	return 0
 }
-//
+
 func GetBrandHouseNum(str string) int {
 	fmt.Println(str)
 	var f interface{}
@@ -160,6 +172,9 @@ func GetBrandInfos(str string) ([]HouseInfo, int) {
 	reg := regexp.MustCompile(`<div class="content__item ">([\s\S]*?)</div>`)
 	for _, item := range reg.FindAllString(str, -1) {
 		brandId, brandName := GetBrandIdAndName(item)
+		if brandId == "" || brandName == "" {
+			continue
+		}
 		h = append(h, HouseInfo{GongyuId: brandId, GongyuName: brandName})
 	}
 	return h, len(h)

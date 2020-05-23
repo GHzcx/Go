@@ -2,46 +2,32 @@ package main
 
 import (
 	"fmt"
-	"regexp"
+	"os"
 	"spider"
+	"strconv"
 	"time"
 )
-func GetBrandId(str string) string {
-	reg := regexp.MustCompile(`<a href="/chuzu/.*?/brand/(.*?)/`)
-	return reg.FindAllString(str, -1)[0]
-}
 
 func main() {
-	//spider.GetBrandInfoList(`110000`, `bj`)
-	//fmt.Println(len(info),info)
-
 	alldata := make(spider.AllData, 0)
 	Queue := make (chan int, 2)
-	result := make (chan spider.Set, 100)
-	done := make(chan struct{}, len(spider.Abbr))
-	go func(result chan spider.Set, data *spider.AllData) {
-		retry := 10
-		for retry > 0 {
-			select {
-			case s:= <-result:
-				(*data)[s.CityCode] = append((*data)[s.CityCode], s.HouseInfo)
-			default:
-				time.Sleep(time.Duration(60)*time.Second)
-				retry--
-			}
-		}
-	}(result, &alldata)
+	result := make (chan spider.Set, 10)
+	done := make(chan struct{}, len(spider.CityAbbr))
+
 	for city, abbr := range spider.CityAbbr {
 		Queue <- 1
-		go spider.GetBrandInfoList(Queue, done,result, city, abbr)
+		go spider.GetBrandInfoList(Queue, done, result, city, abbr)
 		fmt.Println("Queue", len(Queue))
 	}
 	for working := len(spider.CityAbbr); working > 0; {
 		select {
+			case s:= <-result:
+				alldata[s.CityCode] = append(alldata[s.CityCode], s.HouseInfo)
 			case <-done:
 				working--
 		}
 	}
+	time.Sleep(60 * time.Second)
 	//处理goroutine结束以后通道中存在的数据
 DONE:
 	for {
@@ -52,15 +38,26 @@ DONE:
 				break DONE
 		}
 	}
-	time.Sleep(time.Duration(60)*time.Second)
+	totalCount := 0
+	totalNum := 0
+	fp, err := os.OpenFile("./result.txt", os.O_CREATE | os.O_APPEND, 6)
+	if err != nil {
+		fmt.Println("文件打开失败。")
+		return
+	}
 	for cityCode,info := range alldata {
-		fmt.Println(spider.CityList[cityCode])
-		for i := 0; i < len(info); i++ {
-			fmt.Println(info[i])
+		fmt.Println(spider.CityList[cityCode], len(info))
+		for _,value := range info {
+			if value.HouseVrNum > 0 {
+				totalNum++
+				fp.WriteString( value.GongyuId + " " + value.GongyuName + " " + strconv.Itoa(value.HouseVrNum) + "\n")
+			}
+			totalCount += value.HouseVrNum
 		}
 	}
-
-	//defer close(result)
-	//defer close(done)
+	fmt.Println(totalCount, totalNum)
+	defer close(result)
+	defer close(done)
+	defer close(Queue)
 
 }
