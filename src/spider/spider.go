@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -50,6 +51,7 @@ func GetProxyUrl() string {
 	}
 	num := rand.New(rand.NewSource(time.Now().UnixNano())).Int63n(int64(len(f) - 1))
 	str := strings.ToLower(f[num]["proxy_type"]) +"://" + f[num]["ip"] + ":" + f[num]["port"]
+	fmt.Println(str)
 	return str
 }
 func getSleep() {
@@ -209,6 +211,59 @@ func GetBrandInfoList(Queue chan int, done chan struct{},result chan<- Set,  cit
 	<-Queue
 }
 
+func GetVrInfoList(cityCode string)  AllData{
+	data := make(AllData, 0)
+	Map := map[string]int{}
+	Url := "https://app.api.ke.com/Rentplat/v2/house/list?"
+	offset := 0
+	limit := 100
+	v := url.Values{
+		"city_id": []string{cityCode},
+		"condition": []string{"vr1ht1"},
+		"is_second_filter" :[]string{"0"},
+		"limit":[]string{strconv.Itoa(limit)},
+		"offset":[]string{strconv.Itoa(offset)},
+		"request_ts": []string{strconv.FormatInt(time.Now().Unix(), 10)},
+		"scene": []string{"list"},
+	}
+	for {
+		v.Set("offset", strconv.Itoa(offset))
+		v.Set("request_ts", strconv.FormatInt(time.Now().Unix(), 10))
+		Url= Url + v.Encode()
+		fmt.Println(Url)
+		str := Download(Url)
+		var f interface{}
+		err := json.Unmarshal([]byte(str),&f)
+		if err != nil {
+			fmt.Println(err)
+		}
+		m := f.(map[string]interface{})["data"].(map[string]interface{})["list"]
+		total := int((f.(map[string]interface{})["data"].(map[string]interface{})["total"]).(float64))
+		s := reflect.ValueOf(m)
+		for i :=0; i < s.Len(); i++ {
+			brandName := ((s.Index(i).Interface()).(map[string]interface{})["app_source_brand_name"]).(string)
+			brandId := ((s.Index(i).Interface()).(map[string]interface{})["app_source_brand"]).(string)
+			if _, ok := Map[brandId]; ok {
+				continue
+			}
+			Map[brandId] = 1
+			params := url.Values{
+				"city_id": []string{cityCode},
+				"condition": []string{"ht1ab"+brandId},
+				"request_ts": []string{strconv.FormatInt(time.Now().Unix(), 10)},
+				"scene": []string{"list"},
+			}
+			houseUrl := "https://app.api.ke.com/Rentplat/v1/house/total?" + params.Encode()
+			params.Set("condition", "vr1ht1ab"+brandId)
+			vrUrl := "https://app.api.ke.com/Rentplat/v1/house/total?" + params.Encode()
+			data[cityCode] = append(data[cityCode], HouseInfo{GongyuId:brandId, GongyuName: brandName, HouseNum: GetBrandHouseNum(Download(houseUrl)), HouseVrNum: GetBrandHouseNum(Download(vrUrl))})
+		}
+		offset += s.Len()
+		if offset >= total {break}
+		fmt.Println(data)
+	}
+	return data
+}
 
 
 
