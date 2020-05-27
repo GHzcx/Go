@@ -7,6 +7,8 @@ import (
 	"zinx/ziface"
 )
 
+
+
 type Server struct {
 	Name string
 	IPVersion string
