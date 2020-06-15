@@ -1,6 +1,7 @@
 package znet
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"time"
@@ -26,6 +27,16 @@ func NewServer(name string) ziface.IServer {
 	return s
 }
 
+func CallBackToClient(conn *net.TCPConn, data []byte, cnt int) error {
+	//回显业务
+	fmt.Println("[Conn Handle] CallBackToClient ... ")
+	if _, err := conn.Write(data[:cnt]); err !=nil {
+		fmt.Println("write back buf err ", err)
+		return errors.New("CallBackToClient error")
+	}
+	return nil
+}
+
 func (s *Server) Start() {
 	fmt.Printf("[START] Server listenner at IP: %s, Port %d, is starting\n", s.IP, s.Port)
 	go func() {
@@ -42,6 +53,8 @@ func (s *Server) Start() {
 		//已经监听成功
 		fmt.Println("start Zinx server  ", s.Name, " succ, now listenning...")
 		//3 启动server网络连接业务
+		var cid uint32
+		cid = 0
 		for {
 			conn, err := listenner.AcceptTCP()
 			if err != nil {
@@ -50,6 +63,10 @@ func (s *Server) Start() {
 			}
 			//3.2 TODO Server.Start() 设置服务器最大连接控制,如果超过最大连接，那么则关闭此新的连接
 			//3.3 TODO Server.Start() 处理该新连接请求的 业务 方法， 此时应该有 handler 和 conn是绑定的
+			dealConn := NewConntion(conn, cid, CallBackToClient)
+			cid ++
+			//3.4 启动当前链接的处理业务
+			go dealConn.Start()
 			//我们这里暂时做一个最大512字节的回显服务
 			go func() {
 				for {
