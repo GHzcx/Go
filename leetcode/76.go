@@ -1,8 +1,6 @@
 package main
 
-import (
-	"fmt"
-)
+import "fmt"
 
 func minWindow(s string, t string) string {
 	pos := make([]int, 60)
